@@ -50,76 +50,343 @@ export function ReceiptDisplay({ receipt, variant, baseUrl, canReprint = false }
   }
 
   const handlePrint = () => {
-    const printContent = receiptRef.current
-    if (!printContent) return
-
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
+
+    // Build QR code SVG from the ref
+    const qrSvg = receiptRef.current?.querySelector('.qr-code-wrap svg')?.outerHTML || ''
+
+    const isOffice = variant === 'office'
+    const statusText = receipt.status
+    const isCancelled = statusText === 'Cancelled'
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt ${receipt.receipt_number} - ${variant === 'customer' ? 'Customer' : 'Office'} Copy</title>
+          <title>${receipt.receipt_number} - ${isOffice ? 'Office' : 'Customer'} Copy</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: 'JetBrains Mono', 'Courier New', monospace;
-              padding: 12mm;
-              background: #fff;
-              color: #1a1a1a;
-              font-size: 11px;
-            }
-            .receipt { 
-              max-width: 80mm;
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              width: 72mm;
               margin: 0 auto;
-              padding: 0;
+              padding: 3mm 4mm;
+              background: #fff;
+              color: #000;
+              font-size: 12px;
+              line-height: 1.3;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
-            .receipt.a4 {
-              max-width: 180mm;
-              padding: 20mm;
-              border: 1px solid #ddd;
+
+            .receipt-paper {
+              width: 100%;
             }
-            .header { text-align: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #999; }
-            .header img { height: 40px; margin-bottom: 6px; }
-            .business-name { font-size: 14px; font-weight: bold; color: #1a7fc1; margin-bottom: 2px; }
-            .tagline { font-size: 8px; font-style: italic; color: #666; }
-            .location { font-size: 9px; color: #666; margin-top: 4px; }
-            .receipt-number { font-size: 12px; font-weight: bold; margin-top: 8px; letter-spacing: 2px; }
-            .status-badge { display: inline-block; padding: 2px 10px; border-radius: 3px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-            .status-valid { background: #dcfce7; color: #166534; }
-            .status-cancelled { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
-            .status-refunded { background: #fef3c7; color: #92400e; }
-            .section { margin: 10px 0; padding: 8px 0; border-bottom: 1px dashed #ccc; }
-            .label { font-size: 8px; color: #888; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 2px; }
-            .value { font-size: 11px; }
-            .amount-box { text-align: center; background: #f5f5f5; padding: 12px 8px; margin: 12px 0; border: 1px dashed #ccc; }
-            .amount { font-size: 22px; font-weight: bold; }
-            .amount-label { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; color: #666; margin-bottom: 4px; }
-            .row { display: flex; justify-content: space-between; margin: 4px 0; }
-            .qr-section { text-align: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #999; }
-            .qr-code svg { margin: 8px auto; }
-            .qr-url { font-size: 7px; color: #999; word-break: break-all; }
-            .footer { text-align: center; font-size: 8px; color: #999; margin-top: 12px; }
-            .copy-type { font-size: 10px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-top: 8px; }
-            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 60px; color: rgba(0,0,0,0.04); font-weight: bold; pointer-events: none; z-index: -1; }
-            .office-badge { background: #fff7ed; border: 1px dashed #f59e0b; padding: 8px; margin-top: 10px; }
-            .office-badge .label { color: #92400e; }
-            .notes-box { background: #fffbeb; border: 1px dashed #f59e0b; padding: 8px; margin-top: 10px; }
+
+            /* Dashed divider */
+            .divider {
+              border: none;
+              border-top: 1px dashed #000;
+              margin: 6px 0;
+            }
+            .divider-double {
+              border: none;
+              border-top: 2px solid #000;
+              margin: 6px 0;
+            }
+
+            /* Header */
+            .header {
+              text-align: center;
+              padding-bottom: 4px;
+            }
+            .biz-name {
+              font-size: 16px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
+            .biz-tagline {
+              font-size: 9px;
+              font-style: italic;
+              color: #555;
+            }
+            .biz-location {
+              font-size: 10px;
+              color: #333;
+              margin-top: 2px;
+            }
+
+            /* Copy type banner */
+            .copy-banner {
+              text-align: center;
+              font-size: 11px;
+              font-weight: bold;
+              letter-spacing: 3px;
+              text-transform: uppercase;
+              padding: 4px 0;
+              border: 1px dashed #000;
+              margin: 4px 0;
+            }
+            .copy-banner.office {
+              background: #f5f5f5;
+            }
+
+            /* Receipt number */
+            .rcpt-num {
+              text-align: center;
+              font-size: 14px;
+              font-weight: bold;
+              letter-spacing: 2px;
+              padding: 4px 0;
+            }
+
+            /* Status */
+            .status {
+              text-align: center;
+              font-size: 11px;
+              font-weight: bold;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              padding: 3px 0;
+            }
+            .status.cancelled {
+              text-decoration: line-through;
+            }
+
+            /* Row items */
+            .row {
+              display: flex;
+              justify-content: space-between;
+              padding: 2px 0;
+              font-size: 11px;
+              gap: 8px;
+            }
+            .row .lbl {
+              color: #333;
+              flex-shrink: 0;
+            }
+            .row .val {
+              text-align: right;
+              font-weight: bold;
+              word-break: break-word;
+            }
+
+            /* Description block */
+            .desc-label {
+              font-size: 10px;
+              color: #333;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 2px;
+            }
+            .desc-text {
+              font-size: 11px;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+
+            /* Amount block */
+            .amount-block {
+              text-align: center;
+              padding: 8px 0;
+            }
+            .amount-label {
+              font-size: 9px;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              color: #333;
+            }
+            .amount-value {
+              font-size: 22px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
+            .payment-method {
+              font-size: 10px;
+              color: #333;
+              margin-top: 2px;
+            }
+
+            /* Notes */
+            .notes-block {
+              border: 1px dashed #000;
+              padding: 4px 6px;
+              margin: 4px 0;
+            }
+            .notes-label {
+              font-size: 9px;
+              font-weight: bold;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .notes-text {
+              font-size: 10px;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+
+            /* QR */
+            .qr-section {
+              text-align: center;
+              padding: 6px 0;
+            }
+            .qr-section svg {
+              display: block;
+              margin: 4px auto;
+            }
+            .qr-hint {
+              font-size: 8px;
+              color: #555;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+            }
+            .qr-url {
+              font-size: 7px;
+              color: #888;
+              word-break: break-all;
+              margin-top: 2px;
+            }
+
+            /* Footer */
+            .footer {
+              text-align: center;
+              font-size: 9px;
+              color: #555;
+              padding-top: 4px;
+            }
+            .footer p {
+              margin: 1px 0;
+            }
+            .thank-you {
+              font-size: 11px;
+              font-weight: bold;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+              margin-bottom: 2px;
+              color: #000;
+            }
+
+            /* Office watermark */
+            .watermark {
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-30deg);
+              font-size: 36px;
+              color: rgba(0,0,0,0.04);
+              font-weight: bold;
+              pointer-events: none;
+              z-index: -1;
+              white-space: nowrap;
+            }
+
             @media print {
-              body { padding: 0; margin: 0; }
-              @page { margin: 5mm; size: 80mm auto; }
-            }
-            @media print and (min-width: 200mm) {
-              @page { margin: 15mm; size: A4; }
-              .receipt { max-width: 100%; }
+              body { margin: 0; padding: 2mm 3mm; }
+              @page { margin: 0; size: 72mm auto; }
             }
           </style>
         </head>
         <body>
-          ${variant === 'office' ? '<div class="watermark">OFFICE COPY</div>' : ''}
-          ${printContent.innerHTML}
+          ${isOffice ? '<div class="watermark">OFFICE COPY</div>' : ''}
+          <div class="receipt-paper">
+
+            <!-- Header -->
+            <div class="header">
+              <div class="biz-name">HOSTech</div>
+              <div class="biz-tagline">Coworking Space</div>
+              <div class="biz-location">Freetown, Sierra Leone</div>
+              <div class="biz-tagline">Innovate. Learn. Grow.</div>
+            </div>
+
+            <hr class="divider-double" />
+
+            <!-- Copy type -->
+            <div class="copy-banner ${isOffice ? 'office' : ''}">${isOffice ? 'Office Copy' : 'Customer Copy'}</div>
+
+            <!-- Receipt number & status -->
+            <div class="rcpt-num">${receipt.receipt_number}</div>
+            <div class="status ${isCancelled ? 'cancelled' : ''}">${statusText}</div>
+
+            <hr class="divider" />
+
+            <!-- Client info -->
+            <div class="row">
+              <span class="lbl">Client:</span>
+              <span class="val">${receipt.customer_name}</span>
+            </div>
+            ${receipt.customer_id ? `
+            <div class="row">
+              <span class="lbl">Member ID:</span>
+              <span class="val">${receipt.customer_id}</span>
+            </div>` : ''}
+
+            <hr class="divider" />
+
+            <!-- Service description -->
+            <div class="desc-label">Service</div>
+            <div class="desc-text">${receipt.service_description}</div>
+
+            <hr class="divider" />
+
+            <!-- Amount -->
+            <div class="amount-block">
+              <div class="amount-label">Total Amount</div>
+              <div class="amount-value">${formatAmount(receipt.amount)}</div>
+              <div class="payment-method">${receipt.payment_method}</div>
+            </div>
+
+            <hr class="divider" />
+
+            <!-- Date/Time -->
+            <div class="row">
+              <span class="lbl">Date:</span>
+              <span class="val">${formatDate(receipt.issued_at)}</span>
+            </div>
+            <div class="row">
+              <span class="lbl">Time:</span>
+              <span class="val">${formatTime(receipt.issued_at)}</span>
+            </div>
+
+            <hr class="divider" />
+
+            <!-- Issuer -->
+            <div class="row">
+              <span class="lbl">Issued by:</span>
+              <span class="val">${receipt.issuer_name}</span>
+            </div>
+            <div class="row">
+              <span class="lbl">Role:</span>
+              <span class="val">${receipt.issuer_role}</span>
+            </div>
+
+            ${isOffice && receipt.internal_notes ? `
+            <hr class="divider" />
+            <div class="notes-block">
+              <div class="notes-label">Internal Notes</div>
+              <div class="notes-text">${receipt.internal_notes}</div>
+            </div>` : ''}
+
+            <hr class="divider" />
+
+            <!-- QR Code -->
+            <div class="qr-section">
+              <div class="qr-hint">Scan to Verify</div>
+              ${qrSvg}
+              <div class="qr-url">${verificationUrl}</div>
+            </div>
+
+            <hr class="divider-double" />
+
+            <!-- Footer -->
+            <div class="footer">
+              <p class="thank-you">Thank You!</p>
+              <p>HOSTech Coworking Space</p>
+              <p>Computer-generated receipt</p>
+              <p>No signature required</p>
+            </div>
+
+          </div>
         </body>
       </html>
     `)
@@ -241,7 +508,7 @@ export function ReceiptDisplay({ receipt, variant, baseUrl, canReprint = false }
         {/* QR Code */}
         <div className="pt-4 text-center border-t border-dashed border-muted-foreground/30 mt-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Scan to Verify</p>
-          <div className="inline-block bg-white p-2 rounded">
+          <div className="qr-code-wrap inline-block bg-white p-2 rounded">
             <QRCodeSVG
               value={verificationUrl}
               size={100}
