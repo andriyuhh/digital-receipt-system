@@ -8,6 +8,9 @@ export interface Staff {
   disabled_by: string | null
   rules_acknowledged: boolean
   created_at: string
+  deleted_at: string | null
+  deleted_by: string | null
+  theme_preference: 'light' | 'dark' | 'system'
 }
 
 export type ReceiptStatus = 'Draft' | 'Issued' | 'Printed' | 'Emailed' | 'Verified' | 'Cancelled' | 'Synced'
@@ -41,6 +44,79 @@ export interface Receipt {
   qr_signature: string | null
   issued_at: string
   is_locked: boolean
+  discount_code_id: string | null
+  discount_code: string | null
+  discount_type: string | null
+  discount_value: number
+  discount_amount: number
+  original_amount: number
+  service_type: string | null
+  service_details: ServiceDetails | null
+}
+
+export type ServiceType = 'workspace' | 'meeting_room' | 'conference_room' | 'printing' | 'custom'
+
+export interface DiscountCode {
+  id: string
+  code: string
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  max_usage: number | null
+  current_usage: number
+  is_active: boolean
+  expires_at: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface ServiceConfig {
+  id: string
+  service_type: string
+  duration: string | null
+  package_name: string | null
+  member_type: string | null
+  base_price: number
+  free_allowance: number
+  extra_rate: number
+  is_active: boolean
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface ServiceLineItem {
+  service_type: ServiceType
+  description: string
+  duration?: string
+  package_name?: string
+  member_type?: string
+  quantity?: number
+  free_allowance?: number
+  free_used?: number
+  extra_units?: number
+  unit_price: number
+  subtotal: number
+  room_booking_id?: string
+}
+
+export interface ServiceDetails {
+  line_items: ServiceLineItem[]
+  subtotal: number
+  discount_amount: number
+  total: number
+}
+
+export interface RoomBooking {
+  id: string
+  room_type: 'meeting_room' | 'conference_room'
+  room_name: string
+  booking_date: string
+  start_time: string
+  end_time: string
+  booked_by: string | null
+  receipt_id: string | null
+  customer_name: string | null
+  status: 'confirmed' | 'cancelled'
+  created_at: string
 }
 
 export interface AuditLog {

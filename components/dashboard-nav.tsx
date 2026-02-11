@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import type { Staff } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 interface DashboardNavProps {
   staff: Staff
@@ -95,6 +96,7 @@ export function DashboardNav({ staff }: DashboardNavProps) {
               {staff.role}
             </span>
           </div>
+          <ThemeToggle />
           <Button variant="outline" size="sm" onClick={handleSignOut}>
             Sign Out
           </Button>
@@ -132,9 +134,12 @@ export function DashboardNav({ staff }: DashboardNavProps) {
                   {staff.role}
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                Sign Out
-              </Button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  Sign Out
+                </Button>
+              </div>
             </div>
           </div>
         </div>

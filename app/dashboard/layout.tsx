@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { AutoLogoutWrapper } from '@/components/auto-logout-wrapper'
+import { ThemeSyncer } from '@/components/theme-syncer'
 
 export default async function DashboardLayout({
   children,
@@ -39,6 +40,7 @@ export default async function DashboardLayout({
 
   return (
     <AutoLogoutWrapper>
+      <ThemeSyncer themePreference={staff.theme_preference || 'system'} />
       <div className="min-h-screen bg-muted/30">
         <DashboardNav staff={staff} />
         <main className="container mx-auto px-4 py-8">
