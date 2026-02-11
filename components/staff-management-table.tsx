@@ -37,7 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { resetStaffPassword, toggleStaffStatus, updateStaffRole } from '@/app/actions/staff'
+import { Textarea } from '@/components/ui/textarea'
+import { resetStaffPassword, toggleStaffStatus, updateStaffRole, softDeleteStaff, updateStaffName } from '@/app/actions/staff'
 import { cn } from '@/lib/utils'
 
 interface Staff {
@@ -45,9 +46,11 @@ interface Staff {
   full_name: string
   role: 'Cashier' | 'Supervisor' | 'Admin'
   is_active: boolean
+  is_deleted?: boolean
   must_change_password: boolean
   created_at: string
   disabled_at: string | null
+  deleted_at?: string | null
 }
 
 interface StaffManagementTableProps {
@@ -67,6 +70,18 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
     staffName: '',
     currentRole: ''
   })
+  const [editNameDialog, setEditNameDialog] = useState<{ open: boolean; staffId: string; staffName: string }>({
+    open: false,
+    staffId: '',
+    staffName: ''
+  })
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; staffId: string; staffName: string }>({
+    open: false,
+    staffId: '',
+    staffName: ''
+  })
+  const [editedName, setEditedName] = useState('')
+  const [showDeleted, setShowDeleted] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<'Cashier' | 'Supervisor' | 'Admin'>('Cashier')
   const [isLoading, setIsLoading] = useState(false)
@@ -118,6 +133,43 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
     }
   }
 
+  const handleEditName = async () => {
+    if (!editedName.trim()) {
+      setError('Name cannot be empty')
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+
+    const result = await updateStaffName(editNameDialog.staffId, editedName.trim())
+    if (result.error) {
+      setError(result.error)
+      setIsLoading(false)
+      return
+    }
+
+    setEditNameDialog({ open: false, staffId: '', staffName: '' })
+    setEditedName('')
+    setIsLoading(false)
+  }
+
+  const handleSoftDelete = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    const result = await softDeleteStaff(deleteDialog.staffId)
+    if (result.error) {
+      setError(result.error)
+      setIsLoading(false)
+      return
+    }
+
+    setDeleteDialog({ open: false, staffId: '', staffName: '' })
+    setIsLoading(false)
+  }
+
+  const filteredStaff = showDeleted ? staff : staff.filter(s => !s.is_deleted)
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -129,8 +181,18 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Staff Accounts</CardTitle>
+          <div className="flex items-center gap-2 text-sm">
+            <label htmlFor="show-deleted" className="text-muted-foreground cursor-pointer">Show deleted</label>
+            <input
+              id="show-deleted"
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => setShowDeleted(e.target.checked)}
+              className="rounded"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -145,15 +207,15 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.length === 0 ? (
+              {filteredStaff.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No staff accounts found
                   </TableCell>
                 </TableRow>
               ) : (
-                staff.map((s) => (
-                  <TableRow key={s.id} className={cn(!s.is_active && 'opacity-60')}>
+                filteredStaff.map((s) => (
+                  <TableRow key={s.id} className={cn(!s.is_active && 'opacity-60', s.is_deleted && 'opacity-40 line-through')}>
                     <TableCell className="font-medium">{s.full_name}</TableCell>
                     <TableCell>
                       <span className={cn(
@@ -168,9 +230,10 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
                     <TableCell>
                       <span className={cn(
                         'inline-block px-2 py-0.5 rounded-full text-xs font-medium',
-                        s.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        s.is_deleted ? 'bg-muted text-muted-foreground' :
+                        s.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                       )}>
-                        {s.is_active ? 'Active' : 'Suspended'}
+                        {s.is_deleted ? 'Deleted' : s.is_active ? 'Active' : 'Suspended'}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -186,7 +249,7 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" disabled={s.id === currentUserId}>
+                          <Button variant="ghost" size="sm" disabled={s.id === currentUserId || !!s.is_deleted}>
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -310,8 +373,35 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
                               </>
                             )}
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditedName(s.full_name)
+                              setEditNameDialog({
+                                open: true,
+                                staffId: s.id,
+                                staffName: s.full_name
+                              })
+                            }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            Edit Name
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setDeleteDialog({
+                                open: true,
+                                staffId: s.id,
+                                staffName: s.full_name
+                              })
+                            }}
+                            className="text-destructive"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            Delete Account
+                          </DropdownMenuItem>
+                          </DropdownMenuContent>
+                          </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -405,6 +495,84 @@ export function StaffManagementTable({ staff, currentUserId }: StaffManagementTa
           </div>
         </DialogContent>
       </Dialog>
-    </>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={editNameDialog.open} onOpenChange={(open) => {
+        setEditNameDialog({ ...editNameDialog, open })
+        setError(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Staff Name</DialogTitle>
+            <DialogDescription>
+              Update the display name for {editNameDialog.staffName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="editName">Full Name</Label>
+              <Input
+                id="editName"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Enter full name"
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditNameDialog({ open: false, staffId: '', staffName: '' })}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditName} disabled={isLoading} className="bg-[#1a7fc1] hover:bg-[#1a7fc1]/90">
+                {isLoading ? 'Saving...' : 'Save Name'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => {
+        setDeleteDialog({ ...deleteDialog, open })
+        setError(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Staff Account</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the account for <strong>{deleteDialog.staffName}</strong>?
+              This will permanently disable their access. The record is retained for audit purposes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <p className="text-sm text-destructive leading-relaxed">
+                <strong>This action will:</strong><br />
+                - Permanently disable the staff account<br />
+                - Prevent all future logins<br />
+                - Retain the record for audit trail integrity
+              </p>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteDialog({ open: false, staffId: '', staffName: '' })}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleSoftDelete} disabled={isLoading}>
+                {isLoading ? 'Deleting...' : 'Delete Account'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      </>
   )
-}
+  }

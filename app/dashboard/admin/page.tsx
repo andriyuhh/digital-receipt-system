@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getDashboardStats, detectMissingReceipts } from '@/app/actions/receipts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DiscountCodesManager } from '@/components/discount-codes-manager'
 import {
   Table,
   TableBody,
@@ -184,6 +185,9 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Discount Codes Management - Admin Only */}
+      {staff.role === 'Admin' && <DiscountCodesManager />}
 
       {/* Staff Performance Table */}
       <Card>

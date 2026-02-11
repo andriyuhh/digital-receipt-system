@@ -247,6 +247,117 @@ export async function updateStaffRole(staffId: string, newRole: 'Cashier' | 'Sup
   return { success: true }
 }
 
+// Soft delete staff account (Admin only) - marks as deleted but retains record
+export async function softDeleteStaff(staffId: string) {
+  const { staff: adminStaff } = await requireAdmin()
+  const adminClient = createAdminClient()
+  
+  // Get target staff info
+  const { data: targetStaff } = await adminClient
+    .from('staff')
+    .select('*')
+    .eq('id', staffId)
+    .single()
+  
+  if (!targetStaff) {
+    return { error: 'Staff not found' }
+  }
+
+  // Prevent deleting the seed admin
+  const { data: authUser } = await adminClient.auth.admin.getUserById(staffId)
+  if (authUser?.user?.email?.toLowerCase() === SEED_ADMIN_EMAIL.toLowerCase()) {
+    return { error: 'Cannot delete the seed admin account' }
+  }
+
+  // Check for active receipts - prevent deletion if they have active receipts
+  const { data: activeReceipts } = await adminClient
+    .from('receipts')
+    .select('id')
+    .eq('issuer_id', staffId)
+    .in('status', ['Issued', 'Printed', 'Emailed'])
+    .limit(1)
+
+  if (activeReceipts && activeReceipts.length > 0) {
+    return { error: 'Cannot delete staff with active receipts. Suspend the account instead.' }
+  }
+  
+  // Soft delete: set is_active to false and mark as deleted
+  const { error: updateError } = await adminClient
+    .from('staff')
+    .update({
+      is_active: false,
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: adminStaff.id,
+      disabled_at: new Date().toISOString(),
+      disabled_by: adminStaff.id,
+    })
+    .eq('id', staffId)
+  
+  if (updateError) {
+    return { error: updateError.message }
+  }
+  
+  // Disable auth account too
+  await adminClient.auth.admin.updateUserById(staffId, {
+    ban_duration: '876600h' // ~100 years, effectively permanent ban
+  })
+  
+  // Log to audit
+  await adminClient.from('audit_log').insert({
+    action: 'STAFF_DELETED',
+    performed_by: adminStaff.id,
+    performed_by_name: adminStaff.full_name,
+    performed_by_role: adminStaff.role,
+    reason: `Soft-deleted staff account: ${targetStaff.full_name} (records retained for audit trail)`
+  })
+  
+  revalidatePath('/dashboard/admin')
+  revalidatePath('/dashboard/staff')
+  
+  return { success: true }
+}
+
+// Update staff name (Admin only)
+export async function updateStaffName(staffId: string, newName: string) {
+  const { staff: adminStaff } = await requireAdmin()
+  const adminClient = createAdminClient()
+
+  const { data: targetStaff } = await adminClient
+    .from('staff')
+    .select('*')
+    .eq('id', staffId)
+    .single()
+
+  if (!targetStaff) {
+    return { error: 'Staff not found' }
+  }
+
+  const oldName = targetStaff.full_name
+
+  const { error: updateError } = await adminClient
+    .from('staff')
+    .update({ full_name: newName })
+    .eq('id', staffId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  await adminClient.from('audit_log').insert({
+    action: 'STAFF_NAME_UPDATED',
+    performed_by: adminStaff.id,
+    performed_by_name: adminStaff.full_name,
+    performed_by_role: adminStaff.role,
+    reason: `Updated name for ${oldName} to ${newName}`
+  })
+
+  revalidatePath('/dashboard/admin')
+  revalidatePath('/dashboard/staff')
+
+  return { success: true }
+}
+
 // Get all staff members
 export async function getAllStaff() {
   await requireAdmin()

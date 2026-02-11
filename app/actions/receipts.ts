@@ -71,7 +71,18 @@ export async function createDraftReceipt(formData: FormData) {
   const customerEmail = (formData.get('customer_email') as string) || null
   const customerPhone = (formData.get('customer_phone') as string) || null
 
-  const receiptData = {
+  // Service details and discount fields
+  const serviceType = (formData.get('service_type') as string) || null
+  const serviceDetailsRaw = formData.get('service_details') as string
+  const serviceDetails = serviceDetailsRaw ? JSON.parse(serviceDetailsRaw) : null
+  const discountCodeId = (formData.get('discount_code_id') as string) || null
+  const discountCode = (formData.get('discount_code') as string) || null
+  const discountType = (formData.get('discount_type') as string) || null
+  const discountValue = formData.get('discount_value') ? parseFloat(formData.get('discount_value') as string) : null
+  const discountAmount = formData.get('discount_amount') ? parseFloat(formData.get('discount_amount') as string) : null
+  const originalAmount = formData.get('original_amount') ? parseFloat(formData.get('original_amount') as string) : null
+
+  const receiptData: Record<string, unknown> = {
     receipt_number: receiptNumber,
     customer_name: formData.get('patient_name') as string,
     customer_id: (formData.get('patient_id') as string) || null,
@@ -88,6 +99,14 @@ export async function createDraftReceipt(formData: FormData) {
     status: 'Draft',
     is_locked: false,
     issued_at: issuedAt,
+    service_type: serviceType,
+    service_details: serviceDetails,
+    discount_code_id: discountCodeId,
+    discount_code: discountCode,
+    discount_type: discountType,
+    discount_value: discountValue,
+    discount_amount: discountAmount,
+    original_amount: originalAmount || parseFloat(formData.get('amount') as string),
   }
 
   const { data: receipt, error } = await supabase

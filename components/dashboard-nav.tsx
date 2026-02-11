@@ -27,6 +27,7 @@ export function DashboardNav({ staff }: DashboardNavProps) {
   const navItems = [
     { href: '/dashboard', label: 'Issue Receipt' },
     { href: '/dashboard/receipts', label: 'All Receipts' },
+    { href: '/dashboard/rooms', label: 'Rooms' },
     ...(staff.role === 'Admin' || staff.role === 'Supervisor'
       ? [
           { href: '/dashboard/admin', label: 'Dashboard' },
