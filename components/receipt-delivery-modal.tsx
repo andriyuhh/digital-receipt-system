@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
   const [phone, setPhone] = useState(receipt.customer_phone || '')
   const [sending, setSending] = useState<Record<string, boolean>>({})
   const [results, setResults] = useState<Record<string, 'success' | 'error' | null>>({})
+  const [includeVerifyLink, setIncludeVerifyLink] = useState(true)
 
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
   const isValidPhone = (p: string) => /^\+?[0-9]{7,15}$/.test(p.replace(/[\s\-()]/g, ''))
@@ -45,6 +47,33 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
     }
   }
 
+  const handleDownloadPdf = async () => {
+    setSending(s => ({ ...s, pdf: true }))
+    try {
+      // Open the PDF-formatted receipt in a new tab for Save As PDF
+      const pdfUrl = `/api/generate-pdf?receiptId=${receipt.id}`
+      const pdfWindow = window.open(pdfUrl, '_blank')
+
+      if (pdfWindow) {
+        // Auto-trigger print dialog for "Save as PDF"
+        pdfWindow.addEventListener('load', () => {
+          setTimeout(() => pdfWindow.print(), 500)
+        })
+      }
+
+      await fetch('/api/log-delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptId: receipt.id, method: 'PDF Download' }),
+      })
+      setResults(r => ({ ...r, pdf: 'success' }))
+    } catch {
+      setResults(r => ({ ...r, pdf: 'error' }))
+    } finally {
+      setSending(s => ({ ...s, pdf: false }))
+    }
+  }
+
   const handleEmail = async () => {
     if (!isValidEmail(email)) return
     setSending(s => ({ ...s, email: true }))
@@ -52,7 +81,7 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
       const res = await fetch('/api/send-receipt-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptId: receipt.id, email }),
+        body: JSON.stringify({ receiptId: receipt.id, customerEmail: email }),
       })
       setResults(r => ({ ...r, email: res.ok ? 'success' : 'error' }))
     } catch {
@@ -69,7 +98,11 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
       const res = await fetch('/api/send-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptId: receipt.id, phone }),
+        body: JSON.stringify({
+          receiptId: receipt.id,
+          phone,
+          includeVerifyLink,
+        }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -134,6 +167,29 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
             </div>
           </div>
 
+          {/* PDF Download Option */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-50 dark:bg-red-950/30 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M12 18v-6" /><path d="m9 15 3 3 3-3" /></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Download PDF</p>
+              <p className="text-xs text-muted-foreground">Save receipt with watermark and QR code</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusIcon method="pdf" />
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-transparent"
+                onClick={handleDownloadPdf}
+                disabled={sending.pdf}
+              >
+                {sending.pdf ? 'Generating...' : 'PDF'}
+              </Button>
+            </div>
+          </div>
+
           {/* Email Option */}
           <div className="p-3 rounded-lg border bg-card space-y-3">
             <div className="flex items-center gap-3">
@@ -173,7 +229,7 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">WhatsApp</p>
-                <p className="text-xs text-muted-foreground">Send verification link via WhatsApp</p>
+                <p className="text-xs text-muted-foreground">Send receipt details via WhatsApp</p>
               </div>
               <StatusIcon method="whatsapp" />
             </div>
@@ -193,6 +249,16 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
               >
                 {sending.whatsapp ? 'Sending...' : 'Send'}
               </Button>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="include-verify-link"
+                checked={includeVerifyLink}
+                onCheckedChange={(checked) => setIncludeVerifyLink(checked === true)}
+              />
+              <Label htmlFor="include-verify-link" className="text-xs text-muted-foreground cursor-pointer">
+                Include verification link in message
+              </Label>
             </div>
           </div>
         </div>
