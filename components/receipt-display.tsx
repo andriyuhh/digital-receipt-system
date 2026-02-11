@@ -331,6 +331,10 @@ export function ReceiptDisplay({ receipt, variant, baseUrl, canReprint = false }
 
             <!-- Amount -->
             <div class="amount-block">
+              ${receipt.discount_code && Number(receipt.discount_amount) > 0 ? `
+              <div style="font-size:10px;color:#555;margin-bottom:2px;">Original: ${formatAmount(Number(receipt.original_amount) || receipt.amount)}</div>
+              <div style="font-size:10px;color:#16a34a;margin-bottom:2px;">Discount (${receipt.discount_code}): -${formatAmount(Number(receipt.discount_amount))}</div>
+              ` : ''}
               <div class="amount-label">Total Amount</div>
               <div class="amount-value">${formatAmount(receipt.amount)}</div>
               <div class="payment-method">${receipt.payment_method}</div>
@@ -463,6 +467,16 @@ export function ReceiptDisplay({ receipt, variant, baseUrl, canReprint = false }
         {/* Amount */}
         <div className="py-4 bg-muted/50 -mx-6 px-6">
           <div className="text-center">
+            {receipt.discount_code && Number(receipt.discount_amount) > 0 && (
+              <div className="mb-2 space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  Original: {formatAmount(Number(receipt.original_amount) || receipt.amount)}
+                </p>
+                <p className="text-xs text-emerald-600 font-medium">
+                  Discount ({receipt.discount_code}): -{formatAmount(Number(receipt.discount_amount))}
+                </p>
+              </div>
+            )}
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</p>
             <p className="text-2xl font-bold mt-1 text-foreground">{formatAmount(receipt.amount)}</p>
             <p className="text-xs text-muted-foreground mt-1">

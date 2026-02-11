@@ -38,8 +38,14 @@ export default function ReportsPage() {
   const [staffFilter, setStaffFilter] = useState('all')
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([])
   const [exporting, setExporting] = useState<string | null>(null)
-  const [canAccess, setCanAccess] = useState(true) // Declare canAccess
-  const [staff, setStaff] = useState<{ full_name: string } | null>({ full_name: '' }) // Declare staff
+  const [analytics, setAnalytics] = useState<{
+    totalDiscountsGiven: number
+    discountsByCode: Record<string, { count: number; total: number }>
+    topDiscountStaff: { name: string; count: number } | null
+    discountedReceiptsCount: number
+    revenueByCategory: Record<string, number>
+    freeBenefitsUsed: Record<string, number>
+  } | null>(null)
 
   const fetchReceipts = useCallback(async () => {
     setLoading(true)
@@ -56,6 +62,7 @@ export default function ReportsPage() {
         setReceipts(data.receipts)
         setStaffList(data.staffList || [])
         if (data.staffName) setStaffName(data.staffName)
+        if (data.analytics) setAnalytics(data.analytics)
       }
     } catch {
       // Handle error silently
@@ -259,6 +266,114 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Enhanced Analytics */}
+      {analytics && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Discount Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-foreground">Discount Summary</CardTitle>
+              <CardDescription>Discount usage and revenue impact</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Discounts Given</p>
+                  <p className="text-lg font-bold text-foreground">NLe {analytics.totalDiscountsGiven.toFixed(2)}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Discounted Receipts</p>
+                  <p className="text-lg font-bold text-foreground">{analytics.discountedReceiptsCount}</p>
+                </div>
+              </div>
+              {Object.keys(analytics.discountsByCode).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">By Discount Code</p>
+                  <div className="space-y-1">
+                    {Object.entries(analytics.discountsByCode).map(([code, data]) => (
+                      <div key={code} className="flex items-center justify-between text-sm bg-muted/30 rounded px-3 py-1.5">
+                        <span className="font-mono text-xs font-medium">{code}</span>
+                        <span className="text-muted-foreground">{data.count}x | NLe {data.total.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {analytics.topDiscountStaff && (
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Most Discounts Applied By</p>
+                  <p className="text-sm font-medium text-foreground">{analytics.topDiscountStaff.name} ({analytics.topDiscountStaff.count} receipts)</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Revenue by Service Category */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-foreground">Revenue by Category</CardTitle>
+              <CardDescription>Breakdown by service type</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Object.keys(analytics.revenueByCategory).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(analytics.revenueByCategory)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([category, amount]) => {
+                      const total = Object.values(analytics.revenueByCategory).reduce((s, v) => s + v, 0)
+                      const percentage = total > 0 ? (amount / total * 100).toFixed(1) : '0'
+                      const categoryLabels: Record<string, string> = {
+                        workspace: 'Workspace',
+                        meeting_room: 'Meeting Room',
+                        conference_room: 'Conference Room',
+                        printing: 'Printing & Copying',
+                        custom: 'Custom',
+                        Other: 'Other/Legacy',
+                      }
+                      return (
+                        <div key={category}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-medium text-foreground">{categoryLabels[category] || category}</span>
+                            <span className="text-muted-foreground">NLe {amount.toFixed(2)} ({percentage}%)</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#1a7fc1] rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No category data available yet.</p>
+              )}
+              {Object.keys(analytics.freeBenefitsUsed).length > 0 && (
+                <div className="border-t pt-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Free Benefits Used</p>
+                  <div className="space-y-1">
+                    {Object.entries(analytics.freeBenefitsUsed).map(([type, count]) => {
+                      const labels: Record<string, string> = {
+                        meeting_room: 'Free Meeting Hours',
+                        conference_room: 'Free Conference Hours',
+                        printing: 'Free Print Pages',
+                      }
+                      return (
+                        <div key={type} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{labels[type] || type}</span>
+                          <span className="font-medium text-foreground">{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Export Buttons */}
       <div className="flex flex-wrap gap-3">
