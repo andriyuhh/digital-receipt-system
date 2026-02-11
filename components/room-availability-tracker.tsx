@@ -61,8 +61,6 @@ export function RoomAvailabilityTracker() {
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [bookedByName, setBookedByName] = useState('')
-  const [bookedByMemberId, setBookedByMemberId] = useState('')
-  const [purpose, setPurpose] = useState('')
 
   const loadBookings = async () => {
     setLoading(true)
@@ -110,8 +108,6 @@ export function RoomAvailabilityTracker() {
         start_time: startTime,
         end_time: endTime,
         booked_by_name: bookedByName.trim(),
-        booked_by_member_id: bookedByMemberId || null,
-        purpose: purpose || null,
       })
       toast.success(`Room booked: ${selectedRoom} ${startTime}-${endTime}`)
       setBookingDialogOpen(false)
@@ -142,8 +138,6 @@ export function RoomAvailabilityTracker() {
     setStartTime('')
     setEndTime('')
     setBookedByName('')
-    setBookedByMemberId('')
-    setPurpose('')
   }
 
   const navigateDate = (days: number) => {
@@ -234,7 +228,7 @@ export function RoomAvailabilityTracker() {
                             setBookingDialogOpen(true)
                           }
                         }}
-                        title={isBooked && booking ? `${booking.booked_by_name}${booking.purpose ? ` - ${booking.purpose}` : ''}` : 'Available - click to book'}
+                        title={isBooked && booking ? `${booking.customer_name || 'Unknown'}` : 'Available - click to book'}
                       >
                         <span className="font-mono font-medium">{time}</span>
                         <span className="mt-0.5">{isBooked ? 'Booked' : 'Open'}</span>
@@ -254,8 +248,7 @@ export function RoomAvailabilityTracker() {
                           <div>
                             <span className="font-mono font-medium">{b.start_time}-{b.end_time}</span>
                             <span className="mx-2 text-muted-foreground">|</span>
-                            <span>{b.booked_by_name}</span>
-                            {b.purpose && <span className="text-muted-foreground ml-1">({b.purpose})</span>}
+                            <span>{b.customer_name || 'Unknown'}</span>
                           </div>
                           <Button
                             variant="ghost"
@@ -332,33 +325,13 @@ export function RoomAvailabilityTracker() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="booked-by">Booked By *</Label>
-                <Input
-                  id="booked-by"
-                  placeholder="Client or member name"
-                  value={bookedByName}
-                  onChange={(e) => setBookedByName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="member-id">Member ID</Label>
-                <Input
-                  id="member-id"
-                  placeholder="Optional"
-                  value={bookedByMemberId}
-                  onChange={(e) => setBookedByMemberId(e.target.value)}
-                />
-              </div>
-            </div>
             <div className="space-y-2">
-              <Label htmlFor="booking-purpose">Purpose</Label>
+              <Label htmlFor="booked-by">Booked By *</Label>
               <Input
-                id="booking-purpose"
-                placeholder="e.g. Team meeting, client presentation..."
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
+                id="booked-by"
+                placeholder="Client or member name"
+                value={bookedByName}
+                onChange={(e) => setBookedByName(e.target.value)}
               />
             </div>
           </div>

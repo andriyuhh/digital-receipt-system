@@ -41,8 +41,6 @@ export async function createRoomBooking(data: {
   start_time: string
   end_time: string
   booked_by_name: string
-  booked_by_member_id?: string | null
-  purpose?: string | null
   receipt_id?: string | null
 }) {
   const supabase = await createClient()
@@ -75,8 +73,14 @@ export async function createRoomBooking(data: {
   const { data: booking, error } = await supabase
     .from('room_bookings')
     .insert({
-      ...data,
-      staff_id: staff.id,
+      room_type: data.room_type,
+      room_name: data.room_name,
+      booking_date: data.booking_date,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      customer_name: data.booked_by_name,
+      booked_by: staff.id,
+      receipt_id: data.receipt_id || null,
       status: 'confirmed',
     })
     .select()
