@@ -139,7 +139,7 @@ export function ReceiptDeliveryModal({ open, onOpenChange, receipt }: ReceiptDel
         <DialogHeader>
           <DialogTitle className="text-foreground">How would you like to deliver this receipt?</DialogTitle>
           <DialogDescription>
-            Receipt <span className="font-mono font-medium">{receipt.receipt_number}</span> - SLE {receipt.amount.toFixed(2)}
+            Receipt <span className="font-mono font-medium">{receipt.receipt_number}</span> - SLE {Number(receipt.amount).toFixed(2)}
           </DialogDescription>
         </DialogHeader>
 

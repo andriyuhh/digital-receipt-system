@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Staff not found' }, { status: 403 })
   }
 
-  const { receiptId, phone } = await request.json()
+  const { receiptId, phone, includeVerifyLink = true } = await request.json()
 
   if (!receiptId || !phone) {
     return NextResponse.json({ error: 'Receipt ID and phone required' }, { status: 400 })
@@ -58,10 +58,24 @@ export async function POST(request: Request) {
     ? `${origin}/verify/${receipt.receipt_number}?sig=${sig}&t=${t}`
     : `${origin}/verify/${receipt.receipt_number}`
 
-  // Compose WhatsApp message - only verification link, no sensitive data
-  const message = encodeURIComponent(
-    `HOSTech Coworking Space\n\nYour receipt ${receipt.receipt_number} is ready.\n\nVerify here:\n${verifyUrl}\n\nThank you for choosing HOSTech!`
-  )
+  // Build PDF download link using signed URL (no auth needed for customer)
+  const pdfUrl = sig
+    ? `${origin}/api/generate-pdf?number=${encodeURIComponent(receipt.receipt_number)}&sig=${sig}&t=${t}`
+    : `${origin}/api/generate-pdf?receiptId=${receipt.id}`
+
+  // Compose WhatsApp message with PDF link and optional verification link
+  const formatAmount = (amount: number) =>
+    `SLE ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`
+
+  let messageText = `*HOSTech Coworking Space*\n\nReceipt: *${receipt.receipt_number}*\nAmount: *${formatAmount(receipt.amount)}*\nDate: ${new Date(receipt.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\nDownload PDF Receipt:\n${pdfUrl}`
+
+  if (includeVerifyLink) {
+    messageText += `\n\nVerify Receipt:\n${verifyUrl}`
+  }
+
+  messageText += `\n\nThank you for choosing HOSTech!`
+
+  const message = encodeURIComponent(messageText)
 
   // Use WhatsApp click-to-chat URL
   const whatsappPhone = cleanPhone.startsWith('+') ? cleanPhone.slice(1) : cleanPhone
