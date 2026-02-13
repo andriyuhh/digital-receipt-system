@@ -71,9 +71,10 @@ export default async function VerifyReceiptPage({
   })
 
   // Validate signature if provided (from QR code)
+  // Try both raw and decoded timestamp since URL params may already be decoded by the browser
   let signatureValid = false
   if (sig && t) {
-    signatureValid = verifySignature(number, t, sig)
+    signatureValid = verifySignature(number, t, sig) || verifySignature(number, decodeURIComponent(t), sig)
   }
 
   // Fetch only safe public fields

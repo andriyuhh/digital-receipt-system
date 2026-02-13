@@ -22,8 +22,10 @@ export async function GET(request: Request) {
 
   // Auth path 1: Signed URL (public access from WhatsApp/QR)
   if (receiptNumber && sig && t) {
-    const isValid = verifySignature(receiptNumber, decodeURIComponent(t), sig)
-    if (!isValid) {
+    // Try both raw and decoded timestamp since URL params may already be decoded by the browser
+    const rawValid = verifySignature(receiptNumber, t, sig)
+    const decodedValid = verifySignature(receiptNumber, decodeURIComponent(t), sig)
+    if (!rawValid && !decodedValid) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
     }
     const serviceClient = getServiceSupabase()

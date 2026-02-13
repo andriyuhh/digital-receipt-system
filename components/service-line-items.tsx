@@ -305,8 +305,8 @@ export function ServiceLineItems({ onChange }: ServiceLineItemsProps) {
                         <SelectValue placeholder="Select package" />
                       </SelectTrigger>
                       <SelectContent>
-                        {getWorkspacePackages(duration).map(p => (
-                          <SelectItem key={p.id} value={p.package_name || ''}>
+                        {getWorkspacePackages(duration).map((p, idx) => (
+                          <SelectItem key={p.id || `ws-${idx}`} value={p.package_name || `pkg-${idx}`}>
                             {p.package_name} - {formatAmount(p.base_price)}
                           </SelectItem>
                         ))}
