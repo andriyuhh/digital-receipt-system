@@ -32,10 +32,11 @@ const DURATIONS = [
 
 interface ServiceLineItemsProps {
   onChange: (items: ServiceLineItem[], subtotal: number) => void
+  initialItems?: ServiceLineItem[]
 }
 
-export function ServiceLineItems({ onChange }: ServiceLineItemsProps) {
-  const [lineItems, setLineItems] = useState<ServiceLineItem[]>([])
+export function ServiceLineItems({ onChange, initialItems }: ServiceLineItemsProps) {
+  const [lineItems, setLineItems] = useState<ServiceLineItem[]>(initialItems || [])
   const [configs, setConfigs] = useState<ServiceConfig[]>([])
   const [adding, setAdding] = useState(false)
 

@@ -1,7 +1,7 @@
 'use client'
 
 import React from "react"
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,9 +45,19 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
   const router = useRouter()
   const { isOnline, pendingCount, addOfflineReceipt, syncReceipts, isSyncing } = useOfflineReceipts()
 
+  // Controlled form fields - so they persist across draft/edit cycles
+  const [clientName, setClientName] = useState('')
+  const [memberId, setMemberId] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('Cash')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [internalNotes, setInternalNotes] = useState('')
+
   // Service line items
   const [lineItems, setLineItems] = useState<ServiceLineItem[]>([])
   const [serviceSubtotal, setServiceSubtotal] = useState(0)
+  // Key to preserve ServiceLineItems state across draft/edit cycles
+  const serviceItemsKeyRef = useRef(0)
 
   // Discount code
   const [discountCode, setDiscountCode] = useState('')
@@ -162,12 +172,12 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
 
     if (!isOnline) {
       addOfflineReceipt({
-        customer_name: formData.get('patient_name') as string,
-        customer_id: (formData.get('patient_id') as string) || null,
+        customer_name: clientName,
+        customer_id: memberId || null,
         service_description: serviceDescription,
         amount: finalAmount,
-        payment_method: formData.get('payment_method') as string,
-        internal_notes: (formData.get('internal_notes') as string) || null,
+        payment_method: paymentMethod,
+        internal_notes: internalNotes || null,
         issuer_id: staffId,
         issuer_name: staffName,
         issuer_role: staffRole,
@@ -209,9 +219,31 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
     }
   }
 
-  const handleCancelDraft = () => {
+  const handleEditDraft = () => {
+    // Go back to the form - all state is controlled so it persists
     setDraftReceipt(null)
     setError(null)
+  }
+
+  const handleIssueAnother = () => {
+    // Full reset for a new receipt
+    setIssuedReceipt(null)
+    setShowDeliveryModal(false)
+    setClientName('')
+    setMemberId('')
+    setPaymentMethod('Cash')
+    setCustomerEmail('')
+    setCustomerPhone('')
+    setInternalNotes('')
+    setLineItems([])
+    setServiceSubtotal(0)
+    setAppliedDiscount(null)
+    setDiscountCode('')
+    setDiscountValidation(null)
+    setDraftReceipt(null)
+    setError(null)
+    // Increment key to force ServiceLineItems to remount fresh
+    serviceItemsKeyRef.current += 1
   }
 
   const formatAmount = (amount: number) => {
@@ -258,15 +290,7 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
                 <Button
                   variant="outline"
                   className="flex-1 bg-transparent"
-                  onClick={() => {
-                    setIssuedReceipt(null)
-                    setShowDeliveryModal(false)
-                    setLineItems([])
-                    setServiceSubtotal(0)
-                    setAppliedDiscount(null)
-                    setDiscountCode('')
-                    setDiscountValidation(null)
-                  }}
+                  onClick={handleIssueAnother}
                 >
                   Issue Another
                 </Button>
@@ -368,7 +392,7 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
             <Button
               variant="outline"
               className="flex-1 bg-transparent"
-              onClick={handleCancelDraft}
+              onClick={handleEditDraft}
               disabled={isConfirming}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -433,18 +457,35 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="patient_name">Client Name *</Label>
-                <Input id="patient_name" name="patient_name" placeholder="Full name" required />
+                <Input
+                  id="patient_name"
+                  name="patient_name"
+                  placeholder="Full name"
+                  required
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="patient_id">Member ID</Label>
-                <Input id="patient_id" name="patient_id" placeholder="Optional" />
+                <Input
+                  id="patient_id"
+                  name="patient_id"
+                  placeholder="Optional"
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                />
               </div>
             </div>
 
-            {/* Service Line Items */}
+            {/* Service Line Items - key keeps it stable across draft/edit */}
             <div className="space-y-2">
               <Label className="text-base font-semibold">Services *</Label>
-              <ServiceLineItems onChange={handleServiceItemsChange} />
+              <ServiceLineItems
+                key={serviceItemsKeyRef.current}
+                onChange={handleServiceItemsChange}
+                initialItems={lineItems}
+              />
             </div>
 
             {/* Discount Code Section */}
@@ -513,7 +554,7 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="payment_method">Payment Method *</Label>
-                <Select name="payment_method" defaultValue="Cash">
+                <Select name="payment_method" value={paymentMethod} onValueChange={setPaymentMethod}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
@@ -536,6 +577,8 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
                   name="customer_email"
                   type="email"
                   placeholder="customer@example.com"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -545,6 +588,8 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
                   name="customer_phone"
                   type="tel"
                   placeholder="+232 XX XXX XXXX"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
                 />
               </div>
             </div>
@@ -557,6 +602,8 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
                 name="internal_notes"
                 placeholder="Notes visible only on office copy..."
                 rows={2}
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
               />
             </div>
 
