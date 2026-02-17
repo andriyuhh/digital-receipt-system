@@ -67,10 +67,10 @@ export async function POST(request: Request) {
   const formatAmount = (amount: number) =>
     `SLE ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`
 
-  let messageText = `*HOSTech Coworking Space*\n\nReceipt: *${receipt.receipt_number}*\nAmount: *${formatAmount(receipt.amount)}*\nDate: ${new Date(receipt.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\nDownload PDF Receipt:\n${pdfUrl}`
+  let messageText = `*HOSTech Coworking Space*\n\n*Official Receipt*\nReceipt No: *${receipt.receipt_number}*\nAmount: *${formatAmount(receipt.amount)}*\nDate: ${new Date(receipt.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n_Please find the PDF receipt attached._`
 
   if (includeVerifyLink) {
-    messageText += `\n\nVerify Receipt:\n${verifyUrl}`
+    messageText += `\n\nVerify this receipt online:\n${verifyUrl}`
   }
 
   messageText += `\n\nThank you for choosing HOSTech!`

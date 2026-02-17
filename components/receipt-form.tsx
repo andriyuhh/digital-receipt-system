@@ -221,6 +221,7 @@ export function ReceiptForm({ staffName, staffRole, staffId }: ReceiptFormProps)
 
   const handleEditDraft = () => {
     // Go back to the form - all state is controlled so it persists
+    console.log("[v0] Edit clicked - clientName:", clientName, "lineItems:", lineItems.length, "discount:", appliedDiscount?.code)
     setDraftReceipt(null)
     setError(null)
   }
